@@ -6,7 +6,7 @@ from utils import blit_rotate_center, scale_image
 
 pygame.init()
 screen = pygame.display.set_mode((800, 400))
-pygame.display.set_caption('Runner')
+pygame.display.set_caption('Room Racer')
 clock = pygame.time.Clock()
 game_font = pygame.font.Font('graphics/UI/Font/Kenney Future.ttf', 50)
 game_active = True
@@ -25,15 +25,24 @@ class AbstractCar(pygame.sprite.Sprite):
         self.acceleration = 0.1
 
     def rotate(self, left=False, right=False):
-        if left:
-            self.angle += self.rotation_velocity
-        if right:
-            self.angle -= self.rotation_velocity
+        if self.velocity !=0:
+            rotation_amount = self.rotation_velocity * (self.velocity / self.max_velocity)
+            if left:
+                self.angle += rotation_amount
+            if right:
+                self.angle -= rotation_amount
+
     def draw(self, surf):
-        blit_rotate_center(surf, self.image, self.rect.center, self.angle)
+        rotated_image = pygame.transform.rotate(self.car_default, self.angle)
+        new_rect = rotated_image.get_rect(center=self.rect.center)
+        surf.blit(rotated_image, new_rect.topleft)
 
     def move_forward(self):
         self.velocity = min(self.velocity + self.acceleration, self.max_velocity)
+        self.move()
+
+    def move_backward(self):
+        self.velocity = max(self.velocity - self.acceleration, -self.max_velocity/2)
         self.move()
 
     def move(self):
@@ -41,11 +50,21 @@ class AbstractCar(pygame.sprite.Sprite):
         vertical = math.cos(radians) * self.velocity
         horizontal = math.sin(radians) * self.velocity
 
-        self.rect.y -= vertical
         self.rect.x -= horizontal
+        self.rect.y -= vertical
+
+        #pygame.draw.rect(screen, (255, 0, 0), player_car.rect, 2)
+        #pygame.draw.circle(screen, (0, 255, 0), player_car.rect.center, 3)
+
+        clamp_rect = screen.get_rect().inflate(-10, -10)
+        self.rect.clamp_ip(clamp_rect)
+
 
     def reduce_speed(self):
-        self.velocity = max(self.velocity - self.acceleration / 2, 0)
+        #self.velocity = max(self.velocity - self.acceleration / 2, 0)
+        self.velocity *= 0.98
+        if self.velocity < 0.05:
+            self.velocity = 0
         self.move()
 
     def update(self):
@@ -57,16 +76,18 @@ class PlayerCar(AbstractCar):
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]:
+        if keys[pygame.K_w]:
             self.move_forward()
+        elif keys[pygame.K_s]:
+            self.move_backward()
         else:
             self.reduce_speed()
 
-        self.rotate(left=keys[pygame.K_LEFT], right=keys[pygame.K_RIGHT])
+        self.rotate(left=keys[pygame.K_a], right=keys[pygame.K_d])
 
     def update(self):
         self.handle_input()
-        super().update()
+
 
 
 
