@@ -1,3 +1,5 @@
+import os
+
 import pygame
 import math
 from sys import exit
@@ -5,11 +7,91 @@ from random import randint, choice
 from utils import blit_rotate_center, scale_image
 
 pygame.init()
-screen = pygame.display.set_mode((800, 400))
+screen = pygame.display.set_mode((1000, 600), pygame.RESIZABLE)
 pygame.display.set_caption('Room Racer')
 clock = pygame.time.Clock()
 game_font = pygame.font.Font('graphics/UI/Font/Kenney Future.ttf', 50)
 game_active = True
+
+
+asphalt_tiles = {}
+ASPHALT_TILE_FOLDER = "graphics/PNG/Tiles/Asphalt road/"
+TILE_SCALE = 0.5
+TILE_BASE_SIZE = 256
+TILE_SIZE = int(TILE_BASE_SIZE * TILE_SCALE)
+GRID_WIDTH = 14
+GRID_HEIGHT = 7
+
+
+
+for filename in os.listdir(ASPHALT_TILE_FOLDER):
+    if filename.endswith(".png"):
+        tile_id = os.path.splitext(filename)[0].replace("road_", "")
+        path = os.path.join(ASPHALT_TILE_FOLDER, filename)
+        image = pygame.image.load(path).convert_alpha()
+        asphalt_tiles[tile_id] = scale_image(image, 1)
+
+class Tile:
+    def __init__(self, tile_id, grid, angle=0):
+        self.tile_id = tile_id
+        self.grid = grid
+        self.angle = angle
+
+
+        TILE_WIDTH = screen.get_width() // GRID_WIDTH
+        TILE_HEIGHT = screen.get_height() // GRID_HEIGHT
+
+
+        raw_image = asphalt_tiles[tile_id]
+        self.image = pygame.transform.scale(raw_image, (TILE_WIDTH, TILE_HEIGHT))
+
+
+        self.rotated_image = pygame.transform.rotate(self.image, self.angle)
+
+
+        x = grid[0] * TILE_WIDTH
+        y = grid[1] * TILE_HEIGHT
+        self.rect = self.rotated_image.get_rect(topleft=(x, y))
+
+    def draw(self, surf):
+        surf.blit(self.rotated_image, self.rect.topleft)
+
+
+class Track:
+    def __init__(self, layout_data):
+        self.tiles = []
+        for tile_info in layout_data:
+            tile = Tile(
+                tile_id=tile_info["tile"],
+                grid=tuple(tile_info["grid"]),
+                angle=tile_info.get("angle", 0)
+            )
+            self.tiles.append(tile)
+
+    def draw(self, surf):
+        for tile in self.tiles:
+            tile.draw(surf)
+
+#14 x 7
+tilemap = [
+    ["blank", "blank", "blank", "blank"],
+    ["blank", "asphalt08", "asphalt09", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt10", "asphalt11"],
+    ["blank", "asphalt26", "asphalt27", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt28", "asphalt29"],
+    ["blank", "asphalt21", "asphalt23", "blank", "blank", "blank", "blank", "blank", "blank", "blank", "blank", "asphalt21", "asphalt23"],
+    ["blank", "asphalt44", "asphalt45", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt04", "asphalt46", "asphalt47"],
+    ["blank", "asphalt62", "asphalt63", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt40", "asphalt64", "asphalt65"],
+    ["blank", "blank", "blank", "blank"],
+]
+
+track_layout = [
+    {"tile": tile, "grid": [x, y], "angle": 0}
+    for y, row in enumerate(tilemap)
+    for x, tile in enumerate(row)
+    if tile != "blank"
+]
+
+track = Track(track_layout)
+
 
 class AbstractCar(pygame.sprite.Sprite):
     def __init__(self, max_velocity, rotation_velocity, start_pos):
@@ -107,11 +189,16 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
+        if event.type == pygame.VIDEORESIZE:
+            screen = pygame.display.set_mode(event.size, pygame.RESIZABLE)
+
+            track = Track(track_layout)
     if game_active:
         tile_surface(screen, dirt_surface)
+        track.draw(screen)
 
 
-        # In main loop
+
         player_car.update()
         player_car.draw(screen)
     else:
